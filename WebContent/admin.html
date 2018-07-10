@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+    <meta charset="UTF-8">
+    <title>管理员-雷玛塔贞景点管理系统</title>
+    <script>
+        /*
+        jQuery.ajax({
+            type: 'POST',
+            dataType: 'text',
+            url: "CheckCookies",
+            data:{"c_code":c_code},
+            async:false,
+            success:function(data){
+                if((data+"").trim() !== "Verify successed."){
+                    location.href = "login.jsp";
+                }
+            }.bind(this)
+        });
+        */
+    </script>
+    <style>
+        body,html{
+            margin: 0;
+            z-index: 0;
+            font-family: 'Microsoft Yahei', sans-serif;
+            height: 100%;
+            overflow: hidden;
+        }
+        .mask{
+            position: fixed;
+            height: 100%;
+            width: 100%;
+            top: 0;
+            left: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1;
+        }
+        .mask-dialog{
+            position: fixed;
+            height: 200px;
+            width: 500px;
+            background: black;
+            z-index: 2;
+            top: 50%;
+            left: 50%;
+            margin-top: -150px;
+            margin-left: -250px;
+            font-size: 40px;
+            color: white;
+            text-align: center;
+        }
+        #password{
+            display: block;
+            background: black;
+            color: white;
+            border: solid 2px white;
+            text-align: center;
+            font-size: 30px;
+            height: 30px;
+            margin-left: 5%;
+            margin-top: 70px;
+            width: 90%;
+        }
+        .right-panel{
+            height: 100%;
+            width: 20%;
+            position: absolute;
+            left: 80%;
+            top: 0;
+        }
+        .right-top-panel{
+            height: 60%;
+            width: 100%;
+            overflow: scroll;
+        }
+        .right-top-panel div{
+            width: 100%;
+            background: grey;
+            margin-bottom: 2px;
+            color: white;
+            padding-left: 10px;
+        }
+        .right-bottom-panel{
+            height: 60%;
+            width: 100%;
+            overflow: scroll;
+        }
+        .right-bottom-panel button{
+            float: left;
+            height: 30px;
+        }
+        .right-bottom-panel textarea{
+            width: 98%;
+            height: 15px;
+            font-size: 15px;
+        }
+        .sand-box {
+            overflow: scroll;
+            height: 100%;
+            width: 80%;
+            background: white;
+        }
+        .pic{
+            height: 1300px;
+            width: 1300px;
+            position: relative;
+        }
+        .pixel{
+            position: absolute;
+            background: #ececec;
+        }
+        #selected{
+            width: 70%;
+            display: inline-block;
+            height: 20px;
+            font-size: 16px;
+            background: black;
+            color: white;
+            position: relative;
+            top: 3px;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body onload="bodyOnload()" onmouseup="bodyOnmouseup()">
+<div class='mask'>
+    <div class='mask-dialog'>
+        <span>输入管理密码</span>
+        <input type='password' id='password' onkeydown="getPassword(event)"/>
+    </div>
+</div>
+<div class="sand-box">
+    <div class="pic" id="pic"></div>
+</div>
+<div class="right-panel">
+    <div class="right-top-panel"></div>
+    <div class="right-bottom-panel">
+        <textarea id="ta0" style="display: none"></textarea>
+        <textarea id="ta1" style="display: none"></textarea>
+        <textarea id="ta2" style="display: none"></textarea>
+        <p><b>已选择</b>&nbsp;&nbsp;<span id="selected"></span></p>
+        <button id="switch-pen-mode">钢笔/橡皮擦</button>
+        <button id="vertex-select">选择景点</button>
+        <button id="edge-select">选择道路</button>
+        <button id="delete">删除</button>
+        <button id="pic-edit">编辑图案</button>
+        <button id="add-vertex">添加景点</button>
+        <button id="add-edge">添加道路</button>
+        <button id="ok-button">确定</button>
+    </div>
+</div>
+<script src="http://code.jquery.com/jquery-3.3.1.min.js">
+</script>
+<script type="application/javascript">
+var password = "",pixHC = 80,pixWC = 80,pixH = 15,pixW = 15,borderW=1,paddingH=10,paddingW=10;
+var pic = [],ismousedown = false,isediting = false,penmode = 1;
+var selected = "",ok_state={type:"none"};
+var selected_state = {type:"",n1:"",n2:"",n:""};
+var selected_pixels = [];
+
+var graph = {};
+    /*
+    {
+        V:{"a":{content:"is a",pix:[]}, "b":{content:"is b",pix:[]}},
+        E:{"a":{"b":{length:1,pix:[]}}, "b":{"a":{length:1,pix:[]}}}
+    };
+    */
+function bodyOnload() {
+    $("body").attr("onselectstart","return false;");
+}
+function pageInit() {
+    picInit();
+    buttonInit();
+    itemInit();
+    reprintAll();
+    getGraphFromBackend();
+}
+function loadGraph(str) {
+    //alert("180 : "+str);
+    graph = JSON.parse(str);
+    itemInit();
+    reprintAll();
+}
+//{"V":{"renmin":{"content":"renmin",pix:[]}},"E":{"renmin":{}}}
+function getGraphFromBackend() {
+    jQuery.ajax({
+        type: 'GET',
+        dataType: 'text',
+        url: "admin",
+        data:{"type":"getGraph",password:password},
+        async:false,
+        success:function(data){
+            var str = (data+"").trim();
+            if(str.indexOf("{") === 0){
+                loadGraph(str);
+            }else alert("something wrong!\n"+data);
+        }.bind(this)
+    });
+}
+function addVertexWithBackend(n,nc) {
+    jQuery.ajax({
+        type: 'GET',
+        dataType: 'text',
+        url: "admin",
+        data:{"type":"addVertex",password:password,vname:n,vcontent:nc},
+        async:false,
+        success:function(data){
+            var str = (data+"").trim();
+            if(str.indexOf("{") === 0){
+                loadGraph(str);
+            }else alert("something wrong!\n"+data);
+        }.bind(this)
+    });
+}
+function removeVertexWithBackend(n) {
+    jQuery.ajax({
+        type: 'GET',
+        dataType: 'text',
+        url: "admin",
+        data:{"type":"removeVertex",password:password,vname:n},
+        async:false,
+        success:function(data){
+            var str = (data+"").trim();
+            if(str.indexOf("{") === 0){
+                loadGraph(str);
+            }else alert("something wrong!\n"+data);
+        }.bind(this)
+    });
+}
+function addEdgeWithBackend(n1,n2,nl) {
+    jQuery.ajax({
+        type: 'GET',
+        dataType: 'text',
+        url: "admin",
+        data:{"type":"addEdge",password:password,v1:n1,v2:n2,l:nl},
+        async:false,
+        success:function(data){
+            var str = (data+"").trim();
+            if(str.indexOf("{") === 0){
+                loadGraph(str);
+            }else alert("something wrong!\n"+data);
+        }.bind(this)
+    });
+}
+function removeEdgeWithBackend(n1,n2) {
+    jQuery.ajax({
+        type: 'GET',
+        dataType: 'text',
+        url: "admin",
+        data:{"type":"removeEdge",password:password,v1:n1,v2:n2},
+        async:false,
+        success:function(data){
+            var str = (data+"").trim();
+            if(str.indexOf("{") === 0){
+                loadGraph(str);
+            }else alert("something wrong!\n"+data);
+        }.bind(this)
+    });
+}
+function setPicWithBackend(pid,pcontent) {
+    jQuery.ajax({
+        type: 'GET',
+        dataType: 'text',
+        url: "admin",
+        data:{"type":"setPic",password:password,pid:pid,pcontent:pcontent},
+        async:false,
+        success:function(data){
+            var str = (data+"").trim();
+            if(str.indexOf("{") === 0){
+                loadGraph(str);
+            }else alert("something wrong!\n"+data);
+        }.bind(this)
+    });
+}
+function itemInit() {
+    $(".right-top-panel").empty();
+    var vs = graph.V,es = graph.E;
+    for(name in vs){
+        $(".right-top-panel").append(
+            $("<div name='"+name+"'><b>景点名称&nbsp;&nbsp;</b>"+decodeURIComponent(name)+"<br/><b>景点简介&nbsp;&nbsp;</b>"+decodeURIComponent(vs[name].content)+"</div>"));
+    }
+    for(namev1 in es){
+        for(namev2 in es[namev1]){
+            if(namev1 < namev2) {
+                var ename = "从" + namev1 + "到" + namev2;
+                var econtent = es[namev1][namev2];
+                $(".right-top-panel").append(
+                    $("<div name='" + ename + "'><b>路径名称&nbsp;&nbsp;</b>" + decodeURIComponent(ename) + "<br/><b>路径长度&nbsp;&nbsp;</b>" + econtent.length + "</div>"));
+            }
+        }
+    }
+}
+function picInit() {
+    for(var i=0;i<pixHC;i++){
+        var line = [];
+        for(var j=0;j<pixWC;j++){
+            var cmd1 = 'pixOnmousedown('+i+','+j+')';
+            var cmd2 = 'pixOnmousemove('+i+','+j+')';
+            var newpix = $("<div class='pixel' " +
+                "onmousedown='"+cmd1+"' onmousemove='"+cmd2+"'></div>");
+            $(newpix).css({
+                "height":pixH+"px",
+                "width":pixW+"px",
+                "top":i*(pixH+borderW)+paddingH+"px",
+                "left":j*(pixW+borderW)+paddingW+"px"
+            });
+            $("#pic").append(newpix);
+            line[j] = newpix;
+        }
+        pic[i] = line;
+        selected_pixels[i] = [];
+    }
+}
+function buttonInit() {
+    $("#switch-pen-mode").click(function () {
+        penmode = (penmode+1)%2;
+    });
+    $("#vertex-select").click(function () {
+        if(!isediting) {
+            showTextArea(1);
+            ok_state.type = "vertex-select"
+        }
+    });
+    $("#edge-select").click(function () {
+        if(!isediting) {
+            showTextArea(2);
+            ok_state.type = "edge-select"
+        }
+    });
+    $("#pic-edit").click(function () {
+        if(selected) {
+            for (var i = 0; i < pixHC; i++) {
+                for (var j = 0; j < pixWC; j++) {
+                    selected_pixels[i][j] = false;
+                }
+            }
+            var arr = selected.pix;
+            for (var i = 0; i < arr.length; i++) {
+                selected_pixels[arr[i].x][arr[i].y] = true;
+                printPixel(arr[i].x,arr[i].y,"purple");
+            }
+            showTextArea(0);
+            isediting = true;
+            ok_state.type = "pic-edit";
+        }
+    });
+    $("#add-vertex").click(function () {
+        showTextArea(2);
+        ok_state.type = "add-vertex";
+    });
+    $("#add-edge").click(function () {
+        showTextArea(3);
+        ok_state.type = "add-edge";
+    });
+    $("#delete").click(function () {
+        if(selected_state.type === "V"){
+            removeVertexWithBackend(selected_state.n);
+        }else if(selected_state.type === "E"){
+            removeEdgeWithBackend(selected_state.n1, selected_state.n2);
+        }
+    });
+    $("#ok-button").click(function () {
+        if(ok_state.type !== "none"){
+            var str;
+            if(isediting){
+                selected.pix = [];
+                isediting = false;
+                var con = 0;
+                for(var i=0;i<pixHC;i++) {
+                    for (var j = 0; j < pixWC; j++) {
+                        if(selected_pixels[i][j]){
+                            selected.pix[con++] = {x:i,y:j};
+                        }
+                    }
+                }
+                var pc = JSON.stringify(selected.pix);
+                if(selected_state.type === "V"){
+                    //alert("377 : "+selected_state.n+"\n"+JSON.stringify(graph.V[selected_state.n].pix));
+                    setPicWithBackend(selected_state.n,pc);
+                }else if(selected_state.type === "E"){
+                    //alert("380 : "+selected_state.n1+" "+selected_state.n2+"\n"+JSON.stringify(graph.E[selected_state.n1][selected_state.n2].pix));
+                    setPicWithBackend(selected_state.n1+"-"+selected_state.n2,pc);
+                }
+            } else if(ok_state.type === "vertex-select"){
+                var vn = $("#ta0").val();
+                $("#selected").html(vn);
+                vn = encodeURIComponent(vn);
+                selected_state = {type:"V",n:vn};
+                selected = graph.V[vn];
+                //alert(JSON.stringify(graph.V)+"\n"+vn);
+            } else if(ok_state.type === "edge-select"){
+                var vn1 = $("#ta0").val(),vn2 = $("#ta1").val();
+                $("#selected").html(vn1+"-"+vn2);
+                vn1 = encodeURIComponent(vn1);
+                vn2 = encodeURIComponent(vn2);
+                selected_state = {type:"E",n1:vn1,n2:vn2};
+                selected = graph.E[vn1][vn2];
+                //alert("397 : "+JSON.stringify(selected_state));
+            } else if(ok_state.type === "add-vertex"){
+                var vn = $("#ta0").val(),vc = $("#ta1").val();
+                vn = encodeURIComponent(vn);
+                vc = encodeURIComponent(vc);
+                addVertexWithBackend(vn,vc)
+            } else if(ok_state.type === "add-edge"){
+                var v1 = $("#ta0").val(),v2 = $("#ta1").val();
+                var vl = parseInt($("#ta2").val());
+                v1 = encodeURIComponent(v1);
+                v2 = encodeURIComponent(v2);
+                addEdgeWithBackend(v1,v2,vl);
+            }
+        }
+        $("#ta0").val("");$("#ta1").val("");$("#ta2").val("");
+        showTextArea(0);
+        ok_state.type = "none";
+    });
+}
+function bodyOnmouseup() {
+    ismousedown = false;
+}
+function pixOnmousedown(i,j){
+    ismousedown = true;
+}
+function pixOnmousemove(i,j){
+    //alert(isediting+" "+ismousedown);
+    if(isediting && ismousedown){
+        if(penmode === 1) {
+            printPixel(i, j, 'purple');
+            selected_pixels[i][j] = true;
+        }else if(penmode === 0) {
+            printPixel(i,j,'#ececec');
+            selected_pixels[i][j] = false;
+        }
+    }
+}
+function showTextArea(c) {
+    if(c > 3)return;
+    for(var i=0;i<c;i++) $("#ta"+i).show();
+    for(var i=c;i<3;i++) $("#ta"+i).hide();
+}
+function reprintAll(){
+    for (var i = 0; i < pixHC; i++) {
+        for (var j = 0; j < pixWC; j++) {
+            printPixel(i,j,"#ececec");
+        }
+    }
+    for(n1 in graph.E){
+        for(n2 in graph.E[n1]){
+            //alert("447 : "+n1+" "+n2+"\n"+JSON.stringify(graph.E[n1][n2].pix));
+            reprint(graph.E[n1][n2].pix,"grey");
+        }
+    }
+    for(n in graph.V){
+        reprint(graph.V[n].pix,"black");
+    }
+}
+function reprint(parr,c) {
+    //alert(JSON.stringify(parr)+" "+c);
+    for(i in parr){
+        $(pic[parr[i].x][parr[i].y]).css("background",c);
+    }
+}
+function printPixel(i,j,c) {
+    $(pic[i][j]).css({
+        "background": c
+    });
+}
+function getPassword(e) {
+    if(e.which === 13){
+        password = $("#password").val();
+        $(".mask").hide();
+        pageInit();
+    }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+    <meta charset="UTF-8">
+    <title>游客-雷玛塔贞景点管理系统</title>
+    <script>
+        /*
+        jQuery.ajax({
+            type: 'POST',
+            dataType: 'text',
+            url: "CheckCookies",
+            data:{"c_code":c_code},
+            async:false,
+            success:function(data){
+                if((data+"").trim() !== "Verify successed."){
+                    location.href = "login.jsp";
+                }
+            }.bind(this)
+        });
+        */
+    </script>
+    <style>
+        body,html{
+            margin: 0;
+            z-index: 0;
+            font-family: 'Microsoft Yahei', sans-serif;
+            height: 100%;
+            overflow: hidden;
+        }
+        .right-panel{
+            height: 100%;
+            width: 30%;
+            position: absolute;
+            left: 70%;
+            top: 0;
+        }
+        .right-top-panel{
+            height: 50%;
+            width: 100%;
+            overflow: scroll;
+        }
+        .right-bottom-panel{
+            height: 50%;
+            width: 100%;
+            overflow: scroll;
+        }
+        .right-top-panel div,.result{
+            width: 100%;
+            background: grey;
+            margin-bottom: 2px;
+            color: white;
+            padding-left: 10px;
+        }
+        .search-panel{
+            width: 100%;
+        }
+        .search-panel textarea{
+            width: 98%;
+            height: 15px;
+            font-size: 15px;
+            display: block;
+        }
+        .sand-box {
+            overflow: scroll;
+            height: 100%;
+            width: 70%;
+            background: white;
+        }
+        .pic{
+            height: 850px;
+            width: 850px;
+            position: relative;
+        }
+        .pixel{
+            position: absolute;
+            background: #ececec;
+        }
+    </style>
+</head>
+<body onload="bodyOnload()">
+<div class="sand-box">
+    <div class="pic" id="pic"></div>
+</div>
+<div class="right-panel">
+    <div class="right-top-panel"></div>
+    <div class="right-bottom-panel">
+        <div class="search-panel">
+            <button>关键字搜索</button>
+            <button>景点人气排名</button>
+            <button>查找路径</button>
+            <button>生成巡游路线</button>
+            <div id="key-word" class="switch-panel">
+                <textarea id="key-word-text"></textarea>
+                <button id="key-word-submit">确定</button>
+            </div>
+            <div id="search-path" class="switch-panel" style="display: none">
+                <textarea id="search-path-text-1"></textarea>
+                <textarea id="search-path-text-2"></textarea>
+                <button id="search-path-submit">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="http://code.jquery.com/jquery-3.3.1.min.js">
+</script>
+<script type="application/javascript">
+    var pixHC = 80,pixWC = 80,pixH = 10,pixW = 10,borderW=0,paddingH=10,paddingW=10;
+    var lgp = 0;
+    var graph = {};
+    /*
+    {
+        V:{"a":{content:"is a",pix:[]}, "b":{content:"is b",pix:[]}},
+        E:{"a":{"b":{length:1,pix:[]}}, "b":{"a":{length:1,pix:[]}}}
+    };
+    */
+    function bodyOnload() {
+        $("body").attr("onselectstart","return false;");
+        picInit();
+        itemInit();
+        reprintAll();
+        getGraphFromBackend();
+    }
+    function loadGraph(str) {
+        //alert("180 : "+str);
+        graph = JSON.parse(str);
+        itemInit();
+        reprintAll();
+    }
+    function loadSearchRes(str) {
+        var res = JSON.parse(str);
+        $(".result").remove();
+        for(var i=0;i<res.length;i++){
+            var name = res[i];
+            $(".right-bottom-panel").append(
+                $("<div class='result' name='"+name+"'><b>景点名称&nbsp;&nbsp;</b>"+decodeURIComponent(name)+"<br/><b>景点简介&nbsp;&nbsp;</b>"+decodeURIComponent(vs[name].content)+"</div>"));
+        }
+    }
+    //{"V":{"renmin":{"content":"renmin",pix:[]}},"E":{"renmin":{}}}
+    function getGraphFromBackend() {
+        jQuery.ajax({
+            type: 'GET',
+            dataType: 'text',
+            url: "user",
+            data:{"type":"getGraph",lgp:lgp},
+            async:false,
+            success:function(data){
+                var str = (data+"").trim();
+                if(str.indexOf("{") === 0){
+                    loadGraph(str);
+                    lgp = new Date().getTime();
+                }else alert("something wrong!\n"+data);
+            }.bind(this)
+        });
+    }
+    function selectKeywordFromBackend(key) {
+        jQuery.ajax({
+            type: 'GET',
+            dataType: 'text',
+            url: "user",
+            data:{"type":"keyword",lgp:lgp,key:encodeURIComponent(key)},
+            async:false,
+            success:function(data){
+                var str = (data+"").trim();
+                if(str.indexOf("[") === 0){
+                    loadSearchRes(str);
+                }else alert("something wrong!\n"+data);
+            }.bind(this)
+        });
+    }
+    function itemInit() {
+        $(".right-top-panel").empty();
+        var vs = graph.V,es = graph.E;
+        for(name in vs){
+            $(".right-top-panel").append(
+                $("<div name='"+name+"'><b>景点名称&nbsp;&nbsp;</b>"+decodeURIComponent(name)+"<br/><b>景点简介&nbsp;&nbsp;</b>"+decodeURIComponent(vs[name].content)+"</div>"));
+        }
+        for(namev1 in es){
+            for(namev2 in es[namev1]){
+                if(namev1 < namev2) {
+                    var ename = "从" + namev1 + "到" + namev2;
+                    var econtent = es[namev1][namev2];
+                    $(".right-top-panel").append(
+                        $("<div name='" + ename + "'><b>路径名称&nbsp;&nbsp;</b>" + decodeURIComponent(ename) + "<br/><b>路径长度&nbsp;&nbsp;</b>" + econtent.length + "</div>"));
+                }
+            }
+        }
+    }
+    function picInit() {
+        for(var i=0;i<pixHC;i++){
+            var line = [];
+            for(var j=0;j<pixWC;j++){
+                var newpix = $("<div class='pixel'></div>");
+                $(newpix).css({
+                    "height":pixH+"px",
+                    "width":pixW+"px",
+                    "top":i*(pixH+borderW)+paddingH+"px",
+                    "left":j*(pixW+borderW)+paddingW+"px"
+                });
+                $("#pic").append(newpix);
+                line[j] = newpix;
+            }
+            pic[i] = line;
+        }
+    }
+    function reprintAll(){
+        for (var i = 0; i < pixHC; i++) {
+            for (var j = 0; j < pixWC; j++) {
+                printPixel(i,j,"#ececec");
+            }
+        }
+        for(n1 in graph.E){
+            for(n2 in graph.E[n1]){
+                //alert("447 : "+n1+" "+n2+"\n"+JSON.stringify(graph.E[n1][n2].pix));
+                reprint(graph.E[n1][n2].pix,"grey");
+            }
+        }
+        for(n in graph.V){
+            reprint(graph.V[n].pix,"black");
+        }
+    }
+    function reprint(parr,c) {
+        //alert(JSON.stringify(parr)+" "+c);
+        for(i in parr){
+            $(pic[parr[i].x][parr[i].y]).css("background",c);
+        }
+    }
+    function printPixel(i,j,c) {
+        $(pic[i][j]).css({
+            "background": c
+        });
+    }
+</script>
+</body>
+</html>
