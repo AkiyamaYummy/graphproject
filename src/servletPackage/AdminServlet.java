@@ -21,7 +21,8 @@ public class AdminServlet  extends HttpServlet {
 			String type = request.getParameter("type");
 			String vpass = request.getParameter("password");
 			if(type != null && vpass != null && C.password.equals(vpass)) {
-				C.ale = new Date();
+				if(!type.equals("getGraph"))C.ale = new Date();
+				//如果管理员执行的是会改动图的操作，更新上次修改时间。
 				if(type.equals("addEdge")) {
 					String v1 = request.getParameter("v1");
 					String v2 = request.getParameter("v2");
@@ -73,9 +74,11 @@ public class AdminServlet  extends HttpServlet {
 						out.println("operation fail.");
 					else {
 						//System.out.println(pcontent);
-						C.setPix(pid,pcontent);
+						C.g.setPix(pid,pcontent);
 						out.println(C.g.toString());
 					}
+				}else if(type.equals("sync")) {
+					out.println(C.syncWithFile()?"sync success.":"sync failed.");
 				}
 			}else out.println("please verify.");
 		}

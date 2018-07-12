@@ -148,6 +148,9 @@
         <button id="add-vertex">添加景点</button>
         <button id="add-edge">添加道路</button>
         <button id="ok-button">确定</button>
+        <a href="cmd.html"><button style="width: 100%;margin-top: 10px">命令行景点管理</button></a>
+        <a href="park.html"><button style="width: 100%;margin-top: 10px">停车场管理</button></a>
+        <button onclick="syncFileWithBackend()" style="width: 100%;margin-top: 10px">同步到文件</button>
     </div>
 </div>
 <script src="http://code.jquery.com/jquery-3.3.1.min.js">
@@ -273,6 +276,20 @@ function setPicWithBackend(pid,pcontent) {
         }.bind(this)
     });
 }
+function syncFileWithBackend() {
+    jQuery.ajax({
+        type: 'GET',
+        dataType: 'text',
+        url: "admin",
+        data:{"type":"sync",password:password},
+        async:false,
+        success:function(data){
+            var str = (data+"").trim();
+            if(str.indexOf("sync success.") !== 0)
+                alert("something wrong!\n"+data);
+        }.bind(this)
+    });
+}
 function itemInit() {
     $(".right-top-panel").empty();
     var vs = graph.V,es = graph.E;
@@ -391,6 +408,11 @@ function buttonInit() {
                 //alert(JSON.stringify(graph.V)+"\n"+vn);
             } else if(ok_state.type === "edge-select"){
                 var vn1 = $("#ta0").val(),vn2 = $("#ta1").val();
+                if(vn1 > vn2){
+                    var t = vn2;
+                    vn2 = vn1;
+                    vn1 = t;
+                }
                 $("#selected").html(vn1+"-"+vn2);
                 vn1 = encodeURIComponent(vn1);
                 vn2 = encodeURIComponent(vn2);

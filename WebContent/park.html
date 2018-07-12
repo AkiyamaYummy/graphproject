@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+    <meta charset="UTF-8">
+    <title>雷玛塔贞停车场管理系统</title>
+    <style>
+        body,html{
+            margin: 0;
+            z-index: 0;
+            font-family: "宋体", 'Microsoft Yahei', sans-serif;
+            height: 100%;
+            overflow: hidden;
+            font-weight: bold;
+        }
+        #screen{
+            height: 600px;
+            width: 800px;
+            margin: 30px;
+            box-shadow: 0 0 50px black;
+            overflow: hidden;
+            position: relative;
+        }
+        .color-block{
+            float: left;
+            background: grey;
+        }
+        .car{
+            height: 50px;
+            width: 50px;
+            position: absolute;
+            font-size: 50px;
+            cursor: pointer;
+        }
+        #cmd-panel{
+            position: absolute;
+            background: white;
+            top: 530px;
+            left: 860px;
+            height: 100px;
+            width: 400px;
+            box-shadow: 0 0 50px black;
+        }
+        #cmd{
+            height: 100%;
+            width: 100%;
+            font-size: 30px;
+            font-weight: bold;
+            font-family: "宋体", 'Microsoft Yahei', sans-serif;
+        }
+        #result-panel{
+            position: absolute;
+            background: white;
+            top: 30px;
+            left: 860px;
+            height: 470px;
+            width: 400px;
+            box-shadow: 0 0 50px black;
+            font-size: 20px;
+            overflow-y: scroll;
+        }
+        .cmd-content{
+            color: lightblue;
+            margin: 0 10px;
+        }
+        .cmd-result{
+            margin: 0 30px;
+            color: green;
+        }
+        .cmd-error{
+            margin: 0 30px;
+            color: red;
+        }
+        .commend{
+            color: white;
+            position: absolute;
+            font-size: 40px;
+        }
+    </style>
+</head>
+<body>
+<div id="screen">
+    <p class="commend" style="top: 110px;left: 550px">停车场</p>
+    <p class="commend" style="top: 350px;left: 300px">便<br/>道</p>
+    <div class="color-block" style="width: 800px;height: 200px"></div>
+    <div class="color-block" style="width: 800px;height:  50px;background: white;"></div>
+    <div class="color-block" style="width: 350px;height: 350px;"></div>
+    <div class="color-block" style="width: 100px;height: 350px;background: white;"></div>
+    <div class="color-block" style="width: 350px;height: 350px;"></div>
+</div>
+<div id="cmd-panel">
+    <textarea id="cmd" onkeydown="cmdOnKeyDown(event)"></textarea>
+</div>
+<div id="result-panel"></div>
+<script src="http://code.jquery.com/jquery-3.3.1.min.js">
+</script>
+<script type="application/javascript">
+    var PARK_SIZE = 7,init_position = {left:400,top:600};
+    //var animate_speed = "normal";
+    var run_time = 0;
+    function new_queue() {
+        return  {
+            que_size:100,
+            q_head:0,
+            q_tail:0,
+            size:0,
+            q:[],
+            init:function () {
+                this.q_head = 0;
+                this.q_tail = 0;
+            },
+            push:function (id) {
+                var h = this.q_head,t = this.q_tail;
+                if(this.isFull()) return false;
+                this.q[this.q_tail] = id;
+                this.q_tail = (this.q_tail+1)%this.que_size;
+                this.size ++;
+                return true;
+            },
+            pop:function () {
+                if(this.isEmpty())return null;
+                var res = this.q[this.q_head];
+                this.q_head = (this.q_head+1)%this.que_size;
+                this.size --;
+                return res;
+            },
+            getQue:function () {//从头到尾
+                var res = [],con = 0;
+                for(var i=this.q_head;i!==this.q_tail;i=(i+1)%this.que_size){
+                    res[con++] = this.q[i];
+                }
+                return res;
+            },
+            isFull:function () {
+                return ((this.q_head+this.que_size-this.q_tail)%this.que_size === 1);
+            },
+            isEmpty:function () {
+                return (this.q_head === this.q_tail);
+            },
+            front:function () {
+                return this.q[this.q_head];
+            }
+        };
+    }
+    function new_stack() {
+        return {
+            size:0,
+            sta_size:PARK_SIZE,
+            q:[],
+            init:function () {
+                this.size = 0;
+            },
+            push:function (id) {
+                if(this.isFull())return false;
+                this.q[this.size ++] = id;
+                return true;
+            },
+            pop:function () {
+                if(this.isEmpty())return null;
+                return this.q[--this.size];
+            },
+            getSta:function () {//自顶向下
+                var res = [],con = 0;
+                for(var i=this.size-1;i>=0;i--){
+                    res[con++] = this.q[i];
+                }
+                return res;
+            },
+            isEmpty:function () {
+                return (this.size === 0);
+            },
+            isFull:function () {
+                return (this.size >= this.sta_size);
+            }
+        };
+    }
+    var road1 = new_queue(),road2 = new_stack();
+    var park = new_stack();
+    function cmdOnKeyDown(e) {
+        if(!e.shiftKey && e.which===13){
+            var cmd = $("#cmd");
+            runCmd($(cmd).val());
+            $(cmd).blur();
+            $(cmd).val("");
+            return false;
+        }
+    }
+    function runCmd(cmd_str) {
+        var cmd_list = cmd_str.split("\n");
+        var in_arr = [],out_arr = [];
+        var error = false;
+        if(cmd_list.length === 1){
+            /*
+            if(/^spd [a-z]+$/.test(cmd_list[0])){
+                appendRes("content",cmd_list[0]);
+                animate_speed = cmd_str[0].substring(4);
+                appendRes("result","animate_speed = "+animate_speed);
+                return;
+            }
+            */
+        }
+        for(i in cmd_list) {
+            appendRes("content",cmd_list[i]);
+            if(/^inp [0-9a-z]{6}$/.test(cmd_list[i])){
+                in_arr.push(cmd_list[i].substring(4));
+            }else if(/^out [0-9a-z]{6}$/.test(cmd_list[i])){
+                out_arr.push(cmd_list[i].substring(4));
+            }else error = true;
+        }
+        if(error) {
+            appendRes("error","syntax error.");
+        }else{
+            var cmd_obj = {in:in_arr,out:out_arr};
+            exeCmd(cmd_obj);
+        }
+    }
+    function exeCmd(cmd_obj){
+        appendRes("result","is run time "+(run_time++)+".");
+        //appendRes("result",JSON.stringify(cmd_obj));
+        var ia = cmd_obj.in,oa = cmd_obj.out;
+        for(i in ia)carCome(ia[i]);//新来的车进入等待队列
+        for(i in oa){//标记想要离开的车
+            var pcs = park.getSta(),rcs = road1.getQue();
+            for(var j=0;j<pcs.length;j++) {
+                if (pcs[j].id === oa[i]) {
+                    pcs[j].w = true;
+                    pcs[j].t = run_time;
+                }
+            }
+            for(var j=0;j<rcs.length;j++) {
+                if (rcs[j].id === oa[i]) {
+                    rcs[j].w = true;
+                    rcs[j].t = run_time;
+                }
+            }
+        }
+        //栈中可以离开的车离开
+        insertPark(leavePark(0))//等待队列的车进入栈或者直接离开
+    }
+    function carCome(id) {
+        var car = new_car(id,{top:init_position.top+road1.size*50,left:init_position.left});
+        road1.push(car);
+        $("#screen").append($(car));
+        move(400,road1.size*50+200,car,0);
+    }
+    function leavePark(i){
+        var sta = park.getSta(),size = park.size;
+        while(size > 0 && !sta[size-1].w)size--;
+        var j,k;
+        for(j=0;j<size;j++){
+            var tc = park.pop();
+            if(tc.w){
+                move(350,600,tc,i+j);
+                appendRes("result","id : "+tc.id+", during : "+(run_time-tc.i));
+                //结算
+            } else {
+                road2.push(tc);
+                move((road2.size-1)*50,200,tc,i+j);
+                //调整
+            }
+        }
+        for(k=0;!road2.isEmpty();k++){
+            var rc = road2.pop();
+            park.push(rc);
+            move(800-(park.size-1)*50-50,200,rc,k+2);
+        }
+        return i+j+k;
+    }
+    function insertPark(i) {
+        var j,k;
+        for(j=0;!road1.isEmpty() && (!park.isFull()||road1.front().w);j++){
+            var fc = road1.pop();
+            if(fc.w){
+                move(350,600,fc,i+j);//他没有等到进入停车场的一天，直接离去
+            }else{
+                fc.i = run_time;
+                park.push(fc);
+                move(800-(park.size-1)*50-50,200,fc,i+j);
+            }
+        }
+        var que = road1.getQue();
+        for(k=0;k<que.length;k++){
+            move(400,250+k*50,que[k],i+j+k);
+        }
+        return i+k+j;
+    }
+    function move(x,y,car,wait) {
+        //var car = $(car_dom);
+        var A = Math.abs,delay_time = 300;
+        //var ox = parseInt($(car).css("left")),oy = parseInt($(car).css("top"));
+        var ox = car.p.left,oy = car.p.top;
+        //alert(JSON.stringify(car.p)+" "+x+" "+y);
+        car.delay(wait*delay_time);
+         if(!(ox === x || oy === y)) {
+            if(ox === 400 && x === 350){
+                car.animate({top:200,left:400},"slow","linear");
+                car.animate({top:200,left:350},"slow","linear");
+            }else if(ox === 400){
+                car.animate({top:200,left:400},"slow","linear");
+            }else{
+                car.animate({top:200,left:350},"slow","linear");
+            }
+        }
+        car.animate({top:y,left:x},"slow","linear");
+        car.p = {top:y,left:x};
+    }
+    function appendRes(type,content) {
+        var result_panel = $("#result-panel");
+        $(result_panel).append($("<p class='cmd-"+type+"'>" + content + "</p>"));
+        var scrollHeight = $(result_panel).prop("scrollHeight");
+        $(result_panel).scrollTop(scrollHeight,200);
+    }
+    function new_car(id,position) {
+        var car = $("<div title='ID : "+id+"' class='car'>车</div>");
+        $(car).css(position);
+        car.id = id;
+        car.w = false;
+        car.t = run_time;
+        car.i = 0;
+        car.p = position;
+        return car;
+    }
+</script>
+</body>
+</html>

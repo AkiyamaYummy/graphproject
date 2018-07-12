@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+<head>
+    <meta charset="UTF-8">
+    <title>管理员命令行操作-雷玛塔贞景点管理系统</title>
+    <script>
+        /*
+        jQuery.ajax({
+            type: 'POST',
+            dataType: 'text',
+            url: "CheckCookies",
+            data:{"c_code":c_code},
+            async:false,
+            success:function(data){
+                if((data+"").trim() !== "Verify successed."){
+                    location.href = "login.jsp";
+                }
+            }.bind(this)
+        });
+        */
+    </script>
+    <style>
+        body,html{
+            margin: 0;
+            z-index: 0;
+            font-family: 'Microsoft Yahei', sans-serif;
+            height: 100%;
+            overflow: hidden;
+            background: black;
+            color: white;
+            font-size: 40px;
+        }
+        .mask{
+            position: fixed;
+            height: 100%;
+            width: 100%;
+            top: 0;
+            left: 0;
+            background: rgba(225,225,225,1);
+            z-index: 1;
+        }
+        .mask-dialog{
+            position: fixed;
+            height: 200px;
+            width: 500px;
+            background: black;
+            z-index: 2;
+            top: 50%;
+            left: 50%;
+            margin-top: -150px;
+            margin-left: -250px;
+            font-size: 40px;
+            color: white;
+            text-align: center;
+        }
+        #password{
+            display: block;
+            background: black;
+            color: white;
+            border: solid 2px white;
+            text-align: center;
+            font-size: 30px;
+            height: 30px;
+            margin-left: 5%;
+            margin-top: 70px;
+            width: 90%;
+        }
+        #in{
+            width: 100%;
+            height: 30%;
+            background: black;
+            position: relative;
+        }
+        #in textarea{
+            width: 80%;
+            height: 90%;
+            background: black;
+            border: solid 1px white;
+            color: white;
+            display: inline-block;
+            margin: 0;
+            font-size: 40px;
+        }
+        #in button{
+            width: 10%;
+            height: 50%;
+            display: block;
+            position: absolute;
+            top: 17%;
+            left: 85%;
+            margin: 0;
+            background: black;
+            border: solid 1px white;
+            color: white;
+        }
+        #out{
+            width: 110%;
+            height: 70%;
+            background: black;
+            overflow-y: scroll;
+        }
+        #out p{
+            margin: 0 20px;
+        }
+    </style>
+</head>
+<body>
+<div class='mask'>
+    <div class='mask-dialog'>
+        <span>输入管理密码</span>
+        <input type='password' id='password' onkeydown="getPassword(event)"/>
+    </div>
+</div>
+<div id="out"></div>
+<div id="in">
+    <textarea id="in-text"></textarea>
+    <button onclick="submitCmd()">确定</button>
+</div>
+<script src="http://code.jquery.com/jquery-3.3.1.min.js">
+</script>
+<script type="application/javascript">
+    var password;
+    function submitCmd() {
+        var t = $("#in-text"),cmd = t.val();
+        sendCmd(cmd);
+        $(t).val("");
+    }
+    function sendCmd(str) {
+        try {
+            var cmds = str.split("\n");
+            var ops = [];
+            for (i in cmds) ops[i] = cmds[i].split(" ");
+            var n_str = "";
+            for (var i = 0; i < ops.length; i++) {
+                if (ops[i][0] === "av") {
+                    ops[i][1] = encodeURIComponent(ops[i][1]);
+                    ops[i][2] = encodeURIComponent(ops[i][2]);
+                } else if (ops[i][0] === "ae") {
+                    ops[i][1] = encodeURIComponent(ops[i][1]);
+                    ops[i][2] = encodeURIComponent(ops[i][2]);
+                } else if (ops[i][0] === "rv") {
+                    ops[i][1] = encodeURIComponent(ops[i][1]);
+                } else if (ops[i][0] === "re") {
+                    ops[i][1] = encodeURIComponent(ops[i][1]);
+                    ops[i][2] = encodeURIComponent(ops[i][2]);
+                } else if (ops[i][0] === "sp") {
+                    var vs = ops[i][1].split("-");
+                    if (vs.length === 1)
+                        ops[i][1] = encodeURIComponent(ops[i][1]);
+                    else if (vs.length === 2)
+                        ops[i][1] = encodeURIComponent(vs[0]) + "-" + encodeURIComponent(vs[1]);
+                }
+                for (var j = 0; j < ops[i].length; j++) {
+                    n_str += ops[i][j];
+                    if (j < ops[i].length - 1) n_str += " ";
+                }
+                if (i < ops.length - 1) n_str += "\n";
+            }
+            newLine(str, "none");
+            jQuery.ajax({
+                type: 'GET',
+                dataType: 'text',
+                url: "cmd",
+                data: {"content": n_str, password: password},
+                async: false,
+                success: function (data) {
+                    var data_str = (data + "").trim();
+                    newLine(data_str, "red");
+                }.bind(this)
+            });
+        } catch (err) {
+            newLine("syntax error.", "red");
+        }
+    }
+    function newLine(str,c) {
+        str = str.replace(/\n/g,"<br/>");
+        var out = $("#out");
+        var np = $("<p><span style='background: "+c+"'>"+str+"</span></p>");
+        $(out).append(np);
+        var scrollHeight = $(out).prop("scrollHeight");
+        $(out).scrollTop(scrollHeight,200);
+    }
+    function getPassword(e) {
+        if(e.which === 13){
+            password = $("#password").val();
+            $(".mask").hide();
+        }
+    }
+</script>
+</body>
+</html>

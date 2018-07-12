@@ -9,6 +9,14 @@ public class Vector<T> {
 		_size = 0;
 		capa = initSize;
 	}
+	public Vector(T[] arr) {
+		a = new Object[initSize];
+		_size = 0;
+		capa = initSize;
+		for(int i=0;i<arr.length;i++) {
+			pushBack(arr[i]);
+		}
+	}
 	public void pushBack(T nt) {
 		if(_size+1 > capa) {
 			Object[] na = new Object[capa=_size*2];

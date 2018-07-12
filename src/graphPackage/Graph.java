@@ -3,12 +3,24 @@ package graphPackage;
 import containerPackage.Hash;
 import containerPackage.Heap;
 import containerPackage.List;
+import containerPackage.Vector;
 import nodePackage.ListNode;
 
 public class Graph {
-	public List<Vertex> vs = new List<Vertex>();
-	public Hash<String,Vertex> vHash = new Hash<String,Vertex>();
-	public Hash<String,Edge> eHash = new Hash<String,Edge>();
+	public List<Vertex> vs;
+	public Hash<String,Vertex> vHash;
+	public Hash<String,Edge> eHash;
+	public Graph() {
+		vs = new List<Vertex>();
+		vHash = new Hash<String,Vertex>();
+		eHash = new Hash<String,Edge>();
+	}
+	public Graph(Vector<String> cmds) {
+		vs = new List<Vertex>();
+		vHash = new Hash<String,Vertex>();
+		eHash = new Hash<String,Edge>();
+		readCmd(cmds);
+	}
 	public boolean addVertex(String vname,String vcontent) {//如果原本就有同名顶点，直接返回false
 		if(vHash.get(vname) != null)return false;
 		Vertex nv = new Vertex(vname,vcontent);
@@ -92,13 +104,13 @@ public class Graph {
 		return sb.toString();
 	}
 	public List<Vertex> getShortestPath(String sta,String end){
+		List<Vertex> res = new List<Vertex>();
 		Vertex sv = vHash.get(sta),ev = vHash.get(end);
 		if(sv != null&&ev != null&&dijkstra(sv,ev)) {
-			List<Vertex> res = new List<Vertex>();
 			for(Vertex i=ev;i!=sv;i=i.p) res.pushFront(i);
 			res.pushFront(sv);
-			return res;
-		}else return null;
+		}
+		return res;
 	}
 	public boolean dijkstra(String sta,String end) {
 		Vertex sv = vHash.get(sta),ev = new Vertex(end,null);
@@ -132,5 +144,86 @@ public class Graph {
 			}
 		}
 		return true;
+	}
+	public String readCmd(Vector<String> cmds) {
+		StringBuffer sb = new StringBuffer(); 
+		for(int i=0;i<cmds.size();i++) {
+			String[] ops = cmds.get(i).split(" ");
+			for(int j=0;j<ops.length;j++)
+				ops[j] = ops[j].replaceAll("_"," ");
+			//在命令行单个操作数或操作符中，用“_”代替“ ”
+			try {
+				if(ops[0].equals("av") && ops.length == 3) {
+					if(!addVertex(ops[1],ops[2]))
+						throw new Exception("1:"+cmds.get(i));
+				}else if(ops[0].equals("rv") && ops.length == 2) {
+					if(!removeVertex(ops[1]))
+						throw new Exception("2:"+cmds.get(i));
+				}else if(ops[0].equals("ae") && ops.length == 4) {
+					if(!addEdge(ops[1],ops[2],Integer.parseInt(ops[3])))
+						throw new Exception("3:"+cmds.get(i));
+				}else if(ops[0].equals("re") && ops.length == 3) {
+					if(!removeEdge(ops[1],ops[2]))
+						throw new Exception("4:"+cmds.get(i));
+				}else if(ops[0].equals("sp") && ops.length == 3) {
+					if(!setPix(ops[1],ops[2])) {
+						throw new Exception("5:"+cmds.get(i));
+					}
+				}else throw new Exception("6:"+cmds.get(i));
+			}catch(Exception e) {
+				//e.printStackTrace();
+				sb.append("\""+cmds.get(i)+"\"failed.<br/>");
+			}
+		}
+		return sb.toString();
+	}
+	public boolean setPix(String pid,String pcontent) {
+		String[] sp = pid.split("-");
+		if(sp.length == 1) {
+			Vertex vte = vHash.get(pid);//Vertex to edit
+			if(vte == null) return false;
+			vte.pixes = pcontent;
+			return true;
+		}else if(sp.length == 2) {
+			if(sp[0].compareTo(sp[1]) == 1) {
+				String t = sp[1];
+				sp[1] = sp[0];
+				sp[0] = t;
+			}//保证sp[0]小于sp[1]
+			pid = sp[0]+"-"+sp[1];
+			Edge ete = eHash.get(pid);//Edge to edit
+			if(ete == null) return false;
+			//System.out.println(pid+" "+pcontent);
+			ete.pixes = pcontent;
+			return true;
+		}
+		return false;
+	}
+	public Vector<String> toCmds(){
+		Vector<String> res = new Vector<String>();
+		for(ListNode<Vertex> i=vs.h.n;i!=vs.t;i=i.n) {
+			String vn = i.v.name,vc = i.v.content,vp = i.v.pixes;
+			vn = vn.replace(" ","_");
+			vc = vc.replace(" ","_");
+			res.pushBack("av "+vn+" "+vc);
+			if(vp != null) {
+				vp = vp.replace(" ","_");
+				res.pushBack("sp "+vn+" "+vp);
+			}
+		}
+		for(ListNode<Vertex> i=vs.h.n;i!=vs.t;i=i.n) {
+			for(ListNode<Edge> j=i.v.es.h.n;j!=i.v.es.t;j=j.n) {
+				String v1 = i.v.name,v2 = j.v.to.name,ep = j.v.pixes;
+				int len = j.v.len;
+				v1 = v1.replace(" ","_");
+				v2 = v2.replace(" ","_");
+				res.pushBack("ae "+v1+" "+v2+" "+len);
+				if(ep != null) {
+					ep = ep.replace(" ","_");
+					res.pushBack("sp "+v1+"-"+v2+" "+ep);
+				}
+			}
+		}
+		return res;
 	}
 }

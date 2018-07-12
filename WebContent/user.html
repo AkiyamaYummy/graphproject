@@ -54,11 +54,12 @@
         .search-panel{
             width: 100%;
         }
-        .search-panel textarea{
+        .switch-panel textarea{
             width: 98%;
             height: 15px;
             font-size: 15px;
             display: block;
+            margin: 5px 0;
         }
         .sand-box {
             overflow: scroll;
@@ -85,13 +86,17 @@
     <div class="right-top-panel"></div>
     <div class="right-bottom-panel">
         <div class="search-panel">
-            <button>关键字搜索</button>
-            <button>景点人气排名</button>
-            <button>查找路径</button>
-            <button>生成巡游路线</button>
+            <button class="switch-button" name="key-word">关键字搜索</button>
+            <button class="switch-button" name="search-close">查找附近景点</button>
+            <button class="switch-button" name="search-path">查找路径</button>
+            <button id="hamilton-button">生成巡游路线</button>
             <div id="key-word" class="switch-panel">
                 <textarea id="key-word-text"></textarea>
                 <button id="key-word-submit">确定</button>
+            </div>
+            <div id="search-close" class="switch-panel" style="display: none">
+                <textarea id="search-close-text"></textarea>
+                <button id="search-close-submit">确定</button>
             </div>
             <div id="search-path" class="switch-panel" style="display: none">
                 <textarea id="search-path-text-1"></textarea>
@@ -118,7 +123,28 @@
         picInit();
         itemInit();
         reprintAll();
+        buttonInit();
         getGraphFromBackend();
+    }
+    function buttonInit(){
+        $(".switch-button").click(function () {
+            var name = $(this).attr("name");
+            $(".switch-panel").hide();
+            $("#"+name).show();
+        });
+        $("#hamilton-button").click(function () {
+            $(".switch-panel").hide();
+            selectHamiltonFromBackend();
+        });
+        $("#key-word-submit").click(function () {
+            selectKeywordFromBackend($("#key-word-text").val());
+        });
+        $("#search-close-submit").click(function () {
+            selectCloseFromBackend($("#search-close-text").val());
+        });
+        $("#search-path-submit").click(function () {
+            selectPathFromBackend($("#search-path-text-1").val(),$("#search-path-text-2").val());
+        });
     }
     function loadGraph(str) {
         //alert("180 : "+str);
@@ -126,13 +152,67 @@
         itemInit();
         reprintAll();
     }
+    function getVertexItem(name) {
+        var vs = graph.V;
+        var res = $("<div name='"+name+"'>" +
+            "<b>景点名称&nbsp;&nbsp;</b>"+
+            decodeURIComponent(name)+"<br/>" +
+            "<b>景点简介&nbsp;&nbsp;</b>"+
+            decodeURIComponent(vs[name].content)+
+            "</div>");
+        $(res).mouseover(function () {
+            reprint(graph.V[name].pix,"orange");
+            $(this).css("background","orange");
+        });
+        $(res).mouseout(function () {
+            reprint(graph.V[name].pix,"black");
+            $(this).css("background","grey");
+        });
+        return res;
+    }
+    function getEdgeItem(namev1,namev2) {
+        var es = graph.E;
+        var ename = "从" + namev1 + "到" + namev2;
+        var econtent = es[namev1][namev2];
+        var res = $("<div name1='" + namev1 + "' name2='" + namev2 + "'>" +
+            "<b>路径名称&nbsp;&nbsp;</b>" +
+            decodeURIComponent(ename) + "<br/>" +
+            "<b>路径长度&nbsp;&nbsp;</b>" +
+            econtent.length +
+            "</div>");
+        $(res).mouseover(function () {
+            reprint(graph.E[namev1][namev2].pix,"orange");
+            reprint(graph.E[namev2][namev1].pix,"orange");
+            $(this).css("background","orange");
+        });
+        $(res).mouseout(function () {
+            reprint(graph.E[namev1][namev2].pix,"grey");
+            reprint(graph.E[namev2][namev1].pix,"grey");
+            $(this).css("background","grey");
+        });
+        return res;
+    }
     function loadSearchRes(str) {
         var res = JSON.parse(str);
         $(".result").remove();
         for(var i=0;i<res.length;i++){
-            var name = res[i];
-            $(".right-bottom-panel").append(
-                $("<div class='result' name='"+name+"'><b>景点名称&nbsp;&nbsp;</b>"+decodeURIComponent(name)+"<br/><b>景点简介&nbsp;&nbsp;</b>"+decodeURIComponent(vs[name].content)+"</div>"));
+            var item = getVertexItem(res[i]);
+            $(item).attr("class","result");
+            $(".right-bottom-panel").append(item);
+        }
+    }
+    function loadSearchResAndPath(str){
+        var res = JSON.parse(str),p = $(".right-bottom-panel"),item;
+        $(".result").remove();
+        for(var i=0;i<res.length;i++){
+            if(i > 0){
+                item = getEdgeItem(res[i-1],res[i]);
+                $(item).attr("class","result");
+                $(p).append(item);
+            }
+            item = getVertexItem(res[i]);
+            $(item).attr("class","result");
+            $(p).append(item);
         }
     }
     //{"V":{"renmin":{"content":"renmin",pix:[]}},"E":{"renmin":{}}}
@@ -167,20 +247,61 @@
             }.bind(this)
         });
     }
+    function selectCloseFromBackend(name) {
+        jQuery.ajax({
+            type: 'GET',
+            dataType: 'text',
+            url: "user",
+            data:{"type":"close",lgp:lgp,vname:encodeURIComponent(name)},
+            async:false,
+            success:function(data){
+                var str = (data+"").trim();
+                if(str.indexOf("[") === 0){
+                    loadSearchRes(str);
+                }else alert("something wrong!\n"+data);
+            }.bind(this)
+        });
+    }
+    function selectPathFromBackend(name1,name2) {
+        jQuery.ajax({
+            type: 'GET',
+            dataType: 'text',
+            url: "user",
+            data:{"type":"path",lgp:lgp,v1:encodeURIComponent(name1),v2:encodeURIComponent(name2)},
+            async:false,
+            success:function(data){
+                var str = (data+"").trim();
+                if(str.indexOf("[") === 0){
+                    loadSearchResAndPath(str);
+                }else alert("something wrong!\n"+data);
+            }.bind(this)
+        });
+    }
+    function selectHamiltonFromBackend() {
+        jQuery.ajax({
+            type: 'GET',
+            dataType: 'text',
+            url: "user",
+            data:{"type":"Hamilton",lgp:lgp},
+            async:false,
+            success:function(data){
+                var str = (data+"").trim();
+                if(str.indexOf("[") === 0){
+                    loadSearchResAndPath(str);
+                }else alert("something wrong!\n"+data);
+            }.bind(this)
+        });
+    }
     function itemInit() {
         $(".right-top-panel").empty();
         var vs = graph.V,es = graph.E;
         for(name in vs){
-            $(".right-top-panel").append(
-                $("<div name='"+name+"'><b>景点名称&nbsp;&nbsp;</b>"+decodeURIComponent(name)+"<br/><b>景点简介&nbsp;&nbsp;</b>"+decodeURIComponent(vs[name].content)+"</div>"));
+            $(".right-top-panel").append(getVertexItem(name));
         }
         for(namev1 in es){
             for(namev2 in es[namev1]){
                 if(namev1 < namev2) {
-                    var ename = "从" + namev1 + "到" + namev2;
-                    var econtent = es[namev1][namev2];
-                    $(".right-top-panel").append(
-                        $("<div name='" + ename + "'><b>路径名称&nbsp;&nbsp;</b>" + decodeURIComponent(ename) + "<br/><b>路径长度&nbsp;&nbsp;</b>" + econtent.length + "</div>"));
+                    $(".right-top-panel").append(getEdgeItem(namev1,namev2));
                 }
             }
         }
