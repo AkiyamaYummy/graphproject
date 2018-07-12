@@ -29,6 +29,7 @@ public class Graph {
 		return true;
 	}
 	public boolean addEdge(String vname1,String vname2,int len) {
+		if(len <= 0)return false;
 		if(vname1.compareTo(vname2) == 1) {
 			String t = vname2;
 			vname2 = vname1;
@@ -37,12 +38,12 @@ public class Graph {
 		String ename = vname1+"-"+vname2;
 		//C.debug.println(ename);
 		if(eHash.get(ename) != null) {
-			//C.debug.println("return addedge 1");
+			//System.out.println("return addedge 1");
 			return false;//如果原本就有边，直接返回false
 		}
 		Vertex v1 = vHash.get(vname1),v2 = vHash.get(vname2);
 		if(v1 == null || v2 == null) {
-			//C.debug.println("return addedge 2");
+			//System.out.println("return addedge 2");
 			return false;//如果需要连接的点不存在，直接返回false
 		}
 		Edge e1 = new Edge(len,v2),e2 = new Edge(len,v1);
@@ -192,7 +193,9 @@ public class Graph {
 			}//保证sp[0]小于sp[1]
 			pid = sp[0]+"-"+sp[1];
 			Edge ete = eHash.get(pid);//Edge to edit
-			if(ete == null) return false;
+			if(ete == null) {
+				return false;
+			}
 			//System.out.println(pid+" "+pcontent);
 			ete.pixes = pcontent;
 			return true;
@@ -214,6 +217,10 @@ public class Graph {
 		for(ListNode<Vertex> i=vs.h.n;i!=vs.t;i=i.n) {
 			for(ListNode<Edge> j=i.v.es.h.n;j!=i.v.es.t;j=j.n) {
 				String v1 = i.v.name,v2 = j.v.to.name,ep = j.v.pixes;
+				if(v1.compareTo(v2) > 0) {
+					continue;
+				}
+				//System.out.println(v1+" "+v2);
 				int len = j.v.len;
 				v1 = v1.replace(" ","_");
 				v2 = v2.replace(" ","_");

@@ -3,7 +3,7 @@ package containerPackage;
 import nodePackage.HashNode;
 
 public class Hash<K,V> {
-	static final int totSize = 11;
+	static final int totSize = 103;
 	public HashNode<K,V>[] a;
 	public final int size; 
 	@SuppressWarnings("unchecked")

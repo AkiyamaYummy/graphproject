@@ -180,8 +180,9 @@ function pageInit() {
     getGraphFromBackend();
 }
 function loadGraph(str) {
-    //alert("180 : "+str);
+    //alert(str);
     graph = JSON.parse(str);
+    //alert(JSON.stringify(graph));
     itemInit();
     reprintAll();
 }
@@ -469,6 +470,7 @@ function reprintAll(){
     for(n1 in graph.E){
         for(n2 in graph.E[n1]){
             //alert("447 : "+n1+" "+n2+"\n"+JSON.stringify(graph.E[n1][n2].pix));
+            //alert(decodeURIComponent(n1)+" "+decodeURIComponent(n2)+" "+JSON.stringify(graph.E[n1][n2].pix));
             reprint(graph.E[n1][n2].pix,"grey");
         }
     }
